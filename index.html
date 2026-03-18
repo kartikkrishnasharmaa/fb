@@ -9,34 +9,56 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
-  <!-- reCAPTCHA यहाँ रेंडर होगा (invisible या visible) -->
+  <!-- reCAPTCHA यहाँ रेंडर होगा -->
   <div id="recaptcha-container"></div>
 
   <script>
-    // अपनी Firebase config डालें (पूरी जानकारी)
+    // अपनी Firebase कॉन्फ़िगरेशन डालें (सभी जरूरी फ़ील्ड भरें)
     const firebaseConfig = {
-     apiKey: "AIzaSyAn6DQPxzAeWyqb_cTmOKIardt1wopXU0M",
-     authDomain: "localguide-3d005.firebaseapp.com",
-     projectId: "localguide-3d005",
-     storageBucket: "localguide-3d005.firebasestorage.app",
-     messagingSenderId: "402924882085",
-     appId: "1:402924882085:web:6fcd2f8f0da0d7d713254c",
-     measurementId: "G-D0WD9ZJZ10",
-      appId: "your-app-id"
+      apiKey: "AIzaSyAn6DQPxzAeWyqb_cTmOKIardt1wopXU0M",
+  authDomain: "localguide-3d005.firebaseapp.com",
+  projectId: "localguide-3d005",
+  storageBucket: "localguide-3d005.firebasestorage.app",
+  messagingSenderId: "402924882085",
+  appId: "1:402924882085:web:6fcd2f8f0da0d7d713254c",
+  measurementId: "G-D0WD9ZJZ10"                            // Firebase प्रोजेक्ट सेटिंग से लें
     };
 
     firebase.initializeApp(firebaseConfig);
 
-    // यह फंक्शन React Native WebView से कॉल होगा
-    window.sendOTP = function(phoneNumber) {
-      const appVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-        size: 'invisible'   // या 'normal' (तब reCAPTCHA दिखेगा)
+    // RecaptchaVerifier को एक बार बनाएँ और सेव करें
+    let recaptchaVerifier = null;
+
+    window.onload = function() {
+      // invisible reCAPTCHA बनाएँ
+      recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        size: 'invisible'
       });
 
-      firebase.auth().signInWithPhoneNumber(phoneNumber, appVerifier)
+      // वैकल्पिक: रेंडर होने का इंतज़ार करें
+      recaptchaVerifier.render().then(() => {
+        console.log('reCAPTCHA rendered');
+      });
+
+      // React Native को बताएँ कि WebView तैयार है
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'WEBVIEW_READY'
+      }));
+    };
+
+    // OTP भेजने का फंक्शन (React Native से कॉल होगा)
+    window.sendOTP = function(phoneNumber) {
+      if (!recaptchaVerifier) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'ERROR',
+          message: 'reCAPTCHA तैयार नहीं है। कृपया पुनः प्रयास करें।'
+        }));
+        return;
+      }
+
+      firebase.auth().signInWithPhoneNumber(phoneNumber, recaptchaVerifier)
         .then((confirmationResult) => {
           window.confirmationResult = confirmationResult;
-          // React Native को भेजें कि OTP भेज दिया गया
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'OTP_SENT',
             verificationId: confirmationResult.verificationId
@@ -50,11 +72,12 @@
         });
     };
 
+    // OTP वेरिफाई करने का फंक्शन
     window.verifyOTP = function(code) {
       if (!window.confirmationResult) {
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'ERROR',
-          message: 'No OTP request found. Please request OTP first.'
+          message: 'पहले OTP भेजें।'
         }));
         return;
       }
@@ -69,17 +92,10 @@
         .catch((error) => {
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'INVALID',
-            message: 'Invalid OTP code'
+            message: 'गलत OTP कोड'
           }));
         });
     };
-
-    // वैकल्पिक: reCAPTCHA लोड होने पर React Native को बताएँ
-    window.addEventListener('load', () => {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'WEBVIEW_READY'
-      }));
-    });
   </script>
 </body>
 </html>
