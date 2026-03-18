@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Firebase OTP</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
+</head>
+<body>
+
+<div id="recaptcha-container"></div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAn6DQPxzAeWyqb_cTmOKIardt1wopXU0M",
+    authDomain: "localguide-3d005.firebaseapp.com",
+  };
+
+  firebase.initializeApp(firebaseConfig);
+
+  window.sendOTP = function(phone) {
+    const appVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+      size: 'invisible'
+    });
+
+    firebase.auth().signInWithPhoneNumber(phone, appVerifier)
+      .then((confirmationResult) => {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: "OTP_SENT"
+        }));
+        window.confirmationResult = confirmationResult;
+      })
+      .catch(error => {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: "ERROR",
+          message: error.message
+        }));
+      });
+  };
+
+  window.verifyOTP = function(code) {
+    window.confirmationResult.confirm(code)
+      .then(result => {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: "VERIFIED"
+        }));
+      })
+      .catch(() => {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: "INVALID"
+        }));
+      });
+  };
+</script>
+
+</body>
+</html>  
