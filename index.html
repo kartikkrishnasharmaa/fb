@@ -1,56 +1,85 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Firebase OTP</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firebase OTP WebView</title>
+  <!-- Firebase JS SDK (compat version) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
+  <!-- reCAPTCHA यहाँ रेंडर होगा (invisible या visible) -->
+  <div id="recaptcha-container"></div>
 
-<div id="recaptcha-container"></div>
+  <script>
+    // अपनी Firebase config डालें (पूरी जानकारी)
+    const firebaseConfig = {
+     apiKey: "AIzaSyAn6DQPxzAeWyqb_cTmOKIardt1wopXU0M",
+     authDomain: "localguide-3d005.firebaseapp.com",
+     projectId: "localguide-3d005",
+     storageBucket: "localguide-3d005.firebasestorage.app",
+     messagingSenderId: "402924882085",
+     appId: "1:402924882085:web:6fcd2f8f0da0d7d713254c",
+     measurementId: "G-D0WD9ZJZ10",
+      appId: "your-app-id"
+    };
 
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyAn6DQPxzAeWyqb_cTmOKIardt1wopXU0M",
-    authDomain: "localguide-3d005.firebaseapp.com",
-  };
+    firebase.initializeApp(firebaseConfig);
 
-  firebase.initializeApp(firebaseConfig);
+    // यह फंक्शन React Native WebView से कॉल होगा
+    window.sendOTP = function(phoneNumber) {
+      const appVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        size: 'invisible'   // या 'normal' (तब reCAPTCHA दिखेगा)
+      });
 
-  window.sendOTP = function(phone) {
-    const appVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-      size: 'invisible'
+      firebase.auth().signInWithPhoneNumber(phoneNumber, appVerifier)
+        .then((confirmationResult) => {
+          window.confirmationResult = confirmationResult;
+          // React Native को भेजें कि OTP भेज दिया गया
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'OTP_SENT',
+            verificationId: confirmationResult.verificationId
+          }));
+        })
+        .catch((error) => {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'ERROR',
+            message: error.message
+          }));
+        });
+    };
+
+    window.verifyOTP = function(code) {
+      if (!window.confirmationResult) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'ERROR',
+          message: 'No OTP request found. Please request OTP first.'
+        }));
+        return;
+      }
+
+      window.confirmationResult.confirm(code)
+        .then((result) => {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'VERIFIED',
+            user: result.user ? { uid: result.user.uid, phone: result.user.phoneNumber } : null
+          }));
+        })
+        .catch((error) => {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'INVALID',
+            message: 'Invalid OTP code'
+          }));
+        });
+    };
+
+    // वैकल्पिक: reCAPTCHA लोड होने पर React Native को बताएँ
+    window.addEventListener('load', () => {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'WEBVIEW_READY'
+      }));
     });
-
-    firebase.auth().signInWithPhoneNumber(phone, appVerifier)
-      .then((confirmationResult) => {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: "OTP_SENT"
-        }));
-        window.confirmationResult = confirmationResult;
-      })
-      .catch(error => {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: "ERROR",
-          message: error.message
-        }));
-      });
-  };
-
-  window.verifyOTP = function(code) {
-    window.confirmationResult.confirm(code)
-      .then(result => {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: "VERIFIED"
-        }));
-      })
-      .catch(() => {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: "INVALID"
-        }));
-      });
-  };
-</script>
-
+  </script>
 </body>
-</html>  
+</html>
